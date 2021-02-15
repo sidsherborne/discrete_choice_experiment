@@ -1,0 +1,85 @@
+---
+title: "Designing Choice Experiments using the support.CEs package."
+author: Sidney Sherborne^[The Cognition Company, sidney.sherborne@cognitioncompany.com]
+output:
+  pdf_document:
+    toc: false
+  header-includes:
+    - \usepackage{hyperref}
+---
+
+This is a quick guide to using the [support.CEs]() package to design a choice experiment. This is currently limited to forced-choice experiments with binary attributes (i.e.\ the attribute is present or not present).
+
+The following packages are used in the following code. Install these first.
+
+```{r, echo = TRUE, message = FALSE}
+# These packages are required for the code to work. 
+# Remove the # symbol to uncomment them so they will run.
+
+# install.packages("support.CEs")
+# install.packages("dplyr")
+# install.packages("kableExtra")
+
+library(support.CEs)
+library(dplyr)
+library(kableExtra)
+```
+
+Below is a custom function which takes an input number of binary attributes and returns the design matrix.
+
+```{r, echo = TRUE, message = FALSE}
+create_design <- function(n_attributes) {
+  
+  # Creating the list of 4 attributes with two levels each.
+  attribute_list <<- list(paste0("A", 1:2))
+  
+  for (i in 2:n_attributes){
+    attribute_list[i] <<- list(c(paste0(LETTERS[i],1), 
+                              paste0(LETTERS[i],2)))
+  }
+  
+  # Plugging list into the support.CEs function.
+  design_4 <- Lma.design(attribute.names = attribute_list, 
+                         nalternatives =  2, 
+                         nblocks = 1)
+  
+  # Getting design matrix.
+  design_matrix <- make.design.matrix(design_4, 
+                                      categorical.attributes = paste0("X",1:n_attributes), 
+                                      binary = FALSE)
+  
+  # Removing the 'no choice option'.
+  design_matrix <- design_matrix %>% filter(!ALT == 3) %>%
+  # Recoding 1 and 0 to Yes and No.
+    mutate_at(.vars = paste0(LETTERS[1:n_attributes],2),
+              function(x) ifelse(x==1, "Yes", "No"))  %>% 
+    select(QES, paste0(LETTERS[1:n_attributes],2))
+  
+  # Renaming Table Names
+  names(design_matrix) <- c("Question", paste0("Attribute ", 1:n_attributes))
+  
+  return(design_matrix)
+}
+
+```
+
+The code below selects the number of attributes. Then displays the table containing the structure of the choice experiment. The result of the table can be found in Table \ref{tab:structure}.
+
+```{r, echo = TRUE, message=FALSE, warning=FALSE, results='asis'}
+# Select number of attributes.
+n_attributes <- 4
+
+# Run the function above.
+create_design(n_attributes) %>% 
+# Format the resulting table.
+  kable(caption = "Structure of experiment.", 
+        label = "structure", 
+        booktabs = T, 
+        align = "c", 
+        escape = F, 
+        linesep = c('','\\addlinespace\\hline\\addlinespace')) %>% 
+  kable_styling("condensed", 
+                full_width = F, 
+                latex_options=c("scale_down","HOLD_position")) %>% 
+  print()
+```
